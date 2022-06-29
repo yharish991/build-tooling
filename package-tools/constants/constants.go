@@ -4,8 +4,6 @@
 package constants
 
 const (
-	// LocalRegistryURL is the url of the local docker registry
-	LocalRegistryURL = "localhost:5001"
 
 	// ToolsBinDirPath is the tools bin directory path
 	ToolsBinDirPath = "hack/tools/bin"

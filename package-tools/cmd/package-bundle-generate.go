@@ -18,7 +18,7 @@ import (
 	"github.com/yharish991/build-tooling/package-tools/utils"
 )
 
-var packageRepository, version, subVersion string
+var packageRepository, version, subVersion, localRegistryURL string
 var all, thick bool
 
 // packageBundleGenerateCmd is for generating package bundle
@@ -34,6 +34,7 @@ func init() {
 	packageBundleGenerateCmd.Flags().StringVar(&registry, "registry", "", "OCI registry where the package bundle image needs to be stored")
 	packageBundleGenerateCmd.Flags().StringVar(&version, "version", "", "Package bundle version")
 	packageBundleGenerateCmd.Flags().StringVar(&subVersion, "sub-version", "", "Package bundle subversion")
+	packageBundleGenerateCmd.Flags().StringVar(&localRegistryURL, "local-registry-url", "", "Local registry URL for building packages")
 	packageBundleGenerateCmd.Flags().BoolVar(&all, "all", false, "Generate all package bundles in a repository")
 	packageBundleGenerateCmd.Flags().BoolVar(&thick, "thick", false, "Include thick tarball(s) in package bundle(s)")
 	packageBundleGenerateCmd.MarkFlagRequired("version") //nolint: errcheck
@@ -167,7 +168,7 @@ func generatePackageBundle(pkg *Package, projectRootDir, toolsBinDir, packageNam
 		fmt.Println("Including thick tarball...")
 		var cmdErr bytes.Buffer
 
-		packageURL := fmt.Sprintf("%s/%s:%s", constants.LocalRegistryURL, packageName, imagePackageVersion)
+		packageURL := fmt.Sprintf("%s/%s:%s", localRegistryURL, packageName, imagePackageVersion)
 		imgpkgPushCmd := exec.Command(
 			filepath.Join(toolsBinDir, "imgpkg"),
 			"push",
@@ -229,7 +230,7 @@ func generatePackageBundles(projectRootDir, toolsBinDir string) error {
 			lockOutputFile := pkgVals.Repositories[repo].Packages[i].Name + "-" + imagePackageVersion + "-lock-output.yaml"
 			imgpkgCmd := exec.Command(
 				filepath.Join(toolsBinDir, "imgpkg"),
-				"push", "-b", constants.LocalRegistryURL+"/"+pkgVals.Repositories[repo].Packages[i].Name+":"+imagePackageVersion,
+				"push", "-b", localRegistryURL+"/"+pkgVals.Repositories[repo].Packages[i].Name+":"+imagePackageVersion,
 				"--file", filepath.Join(packagePath, "bundle"),
 				"--lock-output", lockOutputFile,
 			) // #nosec G204
@@ -254,7 +255,7 @@ func generatePackageBundles(projectRootDir, toolsBinDir string) error {
 			pkgVals.Repositories[repo].Packages[i].Version = formatVersion(&pkgVals.Repositories[repo].Packages[i], "_").version
 			pkgVals.Repositories[repo].Packages[i].Sha256 = utils.AfterString(
 				bundleLock.Bundle.Image,
-				constants.LocalRegistryURL+"/"+pkgVals.Repositories[repo].Packages[i].Name+"@sha256:",
+				localRegistryURL+"/"+pkgVals.Repositories[repo].Packages[i].Name+"@sha256:",
 			)
 			yamlData, err := yaml.Marshal(&pkgVals)
 			if err != nil {

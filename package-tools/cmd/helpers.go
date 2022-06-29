@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -157,7 +156,7 @@ func getEnvArrayFromMap(env map[string]string) []string {
 }
 
 func getTempPackageHelpersLib(lib string) (string, error) {
-	tempDir, err := ioutil.TempDir(os.TempDir(), "package-helpers.lib-")
+	tempDir, err := os.MkdirTemp(os.TempDir(), "package-helpers.lib-")
 	if err != nil {
 		return "", fmt.Errorf("cannot create temporary directory: %w", err)
 	}

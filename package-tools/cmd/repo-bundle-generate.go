@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bytes"
+	_ "embed" // required to embed file
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/vmware-tanzu/carvel-imgpkg/pkg/imgpkg/lockconfig"
 	"github.com/yharish991/build-tooling/package-tools/constants"
-	"github.com/yharish991/build-tooling/package-tools/templates"
 	"github.com/yharish991/build-tooling/package-tools/utils"
 )
 
@@ -35,10 +35,26 @@ func init() {
 	repoBundleGenerateCmd.Flags().StringVar(&version, "version", "", "Package version of a package in repo bundle")
 	repoBundleGenerateCmd.Flags().StringVar(&subVersion, "sub-version", "", "Package subversion of a package in repo bundle")
 	repoBundleGenerateCmd.Flags().StringVar(&packageValuesFile, "package-values-file", "", "File containing the packages configuration")
+	repoBundleGenerateCmd.Flags().StringVar(&localRegistryURL, "local-registry-url", "", "Local registry URL for building packages")
 	repoBundleGenerateCmd.MarkFlagRequired("repository") //nolint: errcheck
 	repoBundleGenerateCmd.MarkFlagRequired("registry")   //nolint: errcheck
 	repoBundleGenerateCmd.MarkFlagRequired("version")    //nolint: errcheck
 }
+
+//go:embed templates/images-tmpl.yaml
+var imagesLockTemplate string
+
+//go:embed templates/package-helpers.lib.yaml
+var packageHelpersLib string
+
+//go:embed templates/package-cr-overlay.yaml
+var packageCrOverlay string
+
+//go:embed templates/package-metadata-cr-overlay.yaml
+var packageMetadataCrOverlay string
+
+//go:embed templates/packagerepo-tmpl.yaml
+var packageRepoTemplate string
 
 func runRepoBundleGenerate(cmd *cobra.Command, args []string) error {
 	if err := validateRepoBundleGenerateFlags(); err != nil {
@@ -50,7 +66,7 @@ func runRepoBundleGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	if packageValuesFile == "" {
-		if err := generatePackageBundlesSha256(projectRootDir, constants.LocalRegistryURL); err != nil {
+		if err := generatePackageBundlesSha256(projectRootDir, localRegistryURL); err != nil {
 			return fmt.Errorf("couldn't generate package-values-sha256.yaml: %w", err)
 		}
 		packageValuesFile = filepath.Join(projectRootDir, constants.PackageValuesSha256FilePath)
@@ -170,8 +186,8 @@ func generateRepoBundle(projectRootDir string) error {
 
 	toolsBinDir := filepath.Join(projectRootDir, constants.ToolsBinDirPath)
 
-	// write the lib to a temp file and delete it later
-	packageHelpersLibFile, err := getTempPackageHelpersLib(templates.PackageHelpersLib)
+	// write the ytt lib to a temp file and delete it later
+	packageHelpersLibFile, err := getTempPackageHelpersLib(packageHelpersLib)
 	if err != nil {
 		return err
 	}
@@ -197,15 +213,15 @@ func generateRepoBundle(projectRootDir string) error {
 	yttCmd.Stdout = outfile
 	yttCmd.Stderr = &errBytes
 
-	stdin, err := yttCmd.StdinPipe()
+	yttCmdStdin, err := yttCmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("couldn't run ytt command to generate imgpkg lock output file for repo bundle: %w", err)
 	}
-	_, err = stdin.Write([]byte(templates.ImagesLockTemplate))
+	_, err = yttCmdStdin.Write([]byte(imagesLockTemplate))
 	if err != nil {
 		return fmt.Errorf("couldn't run ytt command to generate imgpkg lock output file for repo bundle: %w", err)
 	}
-	stdin.Close()
+	yttCmdStdin.Close()
 
 	if err = yttCmd.Run(); err != nil {
 		return fmt.Errorf("couldn't generate the image lock output file: %s", errBytes.String())
@@ -236,7 +252,7 @@ func generateRepoBundle(projectRootDir string) error {
 	// create tarball of repo bundle
 	tarballVersion := formatVersion(nil, "_").concat
 	tarBallPath := filepath.Join(projectRootDir, constants.RepoBundlesDir, packageRepository)
-	tarBallFileName := "tanzu-framework-" + packageRepository + "-repo-" + tarballVersion + ".tar.gz"
+	tarBallFileName := packageRepository + "-repo-" + tarballVersion + ".tar.gz"
 	if err := utils.CreateTarball(tarBallPath, tarBallFileName, tarBallPath); err != nil {
 		return fmt.Errorf("couldn't generate package bundle: %w", err)
 	}
@@ -253,8 +269,8 @@ func generatePackageCR(projectRootDir, toolsBinDir, registry, packageArtifactDir
 
 	formattedVer := formatVersion(pkg, "+")
 
-	// write the lib to a temp file and delete it later
-	packageHelpersLibFile, err := getTempPackageHelpersLib(templates.PackageHelpersLib)
+	// write the ytt lib to a temp file and delete it later
+	packageHelpersLibFile, err := getTempPackageHelpersLib(packageHelpersLib)
 	if err != nil {
 		return err
 	}
@@ -290,7 +306,7 @@ func generatePackageCR(projectRootDir, toolsBinDir, registry, packageArtifactDir
 	if err != nil {
 		return fmt.Errorf("couldn't run ytt command to generate Package CR for repo bundle: %w", err)
 	}
-	_, err = packageYttCmdStdin.Write([]byte(templates.PackageCrOverlay))
+	_, err = packageYttCmdStdin.Write([]byte(packageCrOverlay))
 	if err != nil {
 		return fmt.Errorf("couldn't run ytt command to generate Package CR for repo bundle: %w", err)
 	}
@@ -326,7 +342,7 @@ func generatePackageCR(projectRootDir, toolsBinDir, registry, packageArtifactDir
 	if err != nil {
 		return fmt.Errorf("couldn't run ytt command to generate PackageMetadata CR for repo bundle: %w", err)
 	}
-	_, err = packageMetadataYttCmdStdin.Write([]byte(templates.PackageMetadataCrOverlay))
+	_, err = packageMetadataYttCmdStdin.Write([]byte(packageMetadataCrOverlay))
 	if err != nil {
 		return fmt.Errorf("couldn't run ytt command to generate PackageMetadata CR for repo bundle: %w", err)
 	}
