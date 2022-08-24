@@ -1,11 +1,4 @@
-Extending and building integrations for Tanzu is not easy right now. Someone who wants to add an integration doesn’t
-have any standard template/pattern that they can follow or use to get started building that integration.
-We want to make it as simple as possible for platform developers to add integrations and extend Tanzu.
-This tooling could abstract away much of the build complexity, managing a clear, quick feedback loop for developers,
-and enabling release engineers to ship things quickly.
-
-Before we go into how to use the build tooling, lets quickly talk about the contents of this repo
-
+# How to use build tooling
 
 The purpose of this document is to provide a good starting place for someone who wants to use build tooling for Tanzu
 integrations.
@@ -16,8 +9,6 @@ integrations.
     contains a Makefile with a bunch of make targets. These make targets are for initializing the build tooling,
     building and publishing the images and packages etc. in a containerized environment so that the builds are
     deterministic and reproducible in any environment.
-
-    To learn more about the make targets in the Makefile, check the documentation [here](./makefile-targets.md).
 
 2. Set COMPONENTS variable
 
