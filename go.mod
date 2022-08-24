@@ -1,4 +1,4 @@
-module github.com/yharish991/build-tooling/package-tools
+module github.com/yharish991/build-tooling
 
 go 1.17
 
